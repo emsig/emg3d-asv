@@ -14,7 +14,7 @@ class Solver:
     """
 
     # Parameters to loop over
-    params = [['iso', 'vti', 'tri']]
+    params = [['iso', 'vti', 'tri'], ]
     param_names = ['anisotropy', ]
 
     def setup_cache(self):
@@ -53,7 +53,7 @@ class Solver:
 
         return data
 
-    def time_solver_ssl(self, data, anisotropy):
+    def time_solver(self, data, anisotropy):
         solver.solver(
                 grid=data['grid'],
                 model=data[anisotropy],
@@ -64,7 +64,7 @@ class Solver:
                 maxit=1,
                 verb=2)
 
-    def peakmem_solver_ssl(self, data, anisotropy):
+    def peakmem_solver(self, data, anisotropy):
         solver.solver(
                 grid=data['grid'],
                 model=data[anisotropy],
