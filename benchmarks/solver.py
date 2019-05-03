@@ -8,16 +8,25 @@ class Solver:
 
     See data/salt_create.py for the mesh- and data-creation.
 
-    Currently, this fails for `sslsolver=False`. No idea why. If put into a
-    `time_solver`-function instead of a class, it runs fine.
+    Move it to functions:
+
+    - One for memory
+      - with/without sslsolver
+      - iso/vti/tri
+
+    - Timing, with/without sslsolver; semicoarsening and line relaxation
+
+    - Timing, MG with/without semicoarsening; with/without line relaxation
+
+    - Timing, MG all cycles; semicoarsening and line relaxation
 
     """
 
     # Parameters to loop over
-    params = [['iso', 'vti', 'tri'], ]
-    param_names = ['anisotropy', ]
+    params = [[True, False], ['iso', 'vti', 'tri'], ]
+    param_names = ['sslsolver', 'anisotropy', ]
 
-    def setup_cache(self):
+    def setup(self, sslsolver, anisotropy):
 
         # Load data.
         DATA = np.load(join(dirname(__file__), 'data/salt_data.npz'),
@@ -26,51 +35,44 @@ class Solver:
         mesh = DATA['mesh'][()]
 
         # Create grid.
-        grid = utils.TensorMesh(
+        self.grid = utils.TensorMesh(
                 [mesh['hx'], mesh['hy'], mesh['hz']], mesh['x0'])
 
         # Get source field.
-        sfield = utils.get_source_field(grid, mesh['src'], mesh['freq'], 0)
+        self.sfield = utils.get_source_field(
+                self.grid, mesh['src'], mesh['freq'], 0)
 
-        data = {
-            'grid': grid,
-            'sfield': sfield,
-        }
-        for anisotropy in self.params[0]:  # size
+        # Create model.
+        inp = {'grid': self.grid, 'res_x': res, 'freq': mesh['freq']}
+        if anisotropy == 'iso':
+            self.model = utils.Model(**inp)
+        elif anisotropy == 'vti':
+            self.model = utils.Model(res_z=3*res, **inp)
+        else:
+            self.model = utils.Model(res_y=2*res, res_z=3*res, **inp)
 
-            # Create model.
-            if anisotropy == 'iso':
-                model = utils.Model(grid, res, freq=mesh['freq'])
-            elif anisotropy == 'vti':
-                model = utils.Model(grid, res, res_z=2*res, freq=mesh['freq'])
-            else:
-                model = utils.Model(grid, res, 2*res, 3*res, freq=mesh['freq'])
+        # Delete unused variables.
+        del DATA, res, mesh
 
-            data[anisotropy] = model
+    def teardown(self, sslsolver, anisotropy):
+        del self.grid, self.sfield, self.model
 
-        # Run one iteration to ensure functions are jited.
-        solver.solver(grid, model, sfield, sslsolver=True, maxit=1, verb=2)
-
-        return data
-
-    def time_solver(self, data, anisotropy):
+    def time_solver(self, sslsolver, anisotropy):
         solver.solver(
-                grid=data['grid'],
-                model=data[anisotropy],
-                sfield=data['sfield'],
-                sslsolver=True,
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                sslsolver=sslsolver,
                 semicoarsening=True,
                 linerelaxation=True,
-                maxit=1,
                 verb=2)
 
-    def peakmem_solver(self, data, anisotropy):
+    def peakmem_solver(self, sslsolver, anisotropy):
         solver.solver(
-                grid=data['grid'],
-                model=data[anisotropy],
-                sfield=data['sfield'],
-                sslsolver=True,
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                sslsolver=sslsolver,
                 semicoarsening=True,
                 linerelaxation=True,
-                maxit=1,
                 verb=2)
