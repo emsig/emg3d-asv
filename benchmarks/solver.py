@@ -184,6 +184,32 @@ class SmoothingTime:
                 ldir=ldir)
 
 
+class SmoothingMemory:
+    """Memory for emg3d.solver.smoothing.
+
+    Loop:
+    - ldir = 0, 1, 2, or 3.
+
+    """
+    param_names = ['ldir', ]
+    params = [[0, 1, 2, 3], ]
+
+    def setup(self, ldir):
+        self.grid, self.model, self.sfield = get_model(case='big')
+
+    def teardown(self, ldir):
+        del self.grid, self.sfield, self.model
+
+    def peakmem_smoothing(self, ldir):
+        solver.smoothing(
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                efield=self.sfield*0,
+                nu=2,
+                ldir=ldir)
+
+
 class ResidualTime:
     """Timing for emg3d.solver.residual."""
     def setup(self):
@@ -193,6 +219,22 @@ class ResidualTime:
         del self.grid, self.sfield, self.model
 
     def time_smoothing(self):
+        solver.residual(
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                efield=self.sfield*0)
+
+
+class ResidualMemory:
+    """Memory for emg3d.solver.residual."""
+    def setup(self):
+        self.grid, self.model, self.sfield = get_model(case='big')
+
+    def teardown(self):
+        del self.grid, self.sfield, self.model
+
+    def peakmem_smoothing(self):
         solver.residual(
                 grid=self.grid,
                 model=self.model,
