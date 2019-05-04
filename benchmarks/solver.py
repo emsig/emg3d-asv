@@ -1,47 +1,62 @@
+"""
+Benchmarks for emg3d.solver.
+
+See ./data/salt_create.py for the mesh- and data-creation of the salt example.
+
+"""
 import numpy as np
 from emg3d import utils, solver
 from os.path import join, dirname
 
-# Load data.
+# Load salt example data set
 DATA = np.load(join(dirname(__file__), 'data/salt_data.npz'),
                allow_pickle=True)
-RES = DATA['res'][()]
-MESH = DATA['mesh'][()]
+BIG = DATA['big'][()]
+SMALL = DATA['small'][()]
+
+# Change for debugging
+VERB = 1
+
+
+def get_model(anisotropy='iso', case='small'):
+    """Create grid, model, and sfield from SMALL or BIG."""
+
+    if case == 'big':
+        dat = BIG
+    else:
+        dat = SMALL
+
+    # Create grid.
+    grid = utils.TensorMesh([dat['hx'], dat['hy'], dat['hz']], dat['x0'])
+
+    # Create model.
+    inp = {'grid': grid, 'res_x': dat['res'], 'freq': dat['freq']}
+    if anisotropy == 'vti':
+        model = utils.Model(res_z=3*dat['res'], **inp)
+    elif anisotropy == 'tri':
+        model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+    else:  # Default is 'iso'
+        model = utils.Model(**inp)
+
+    # Create source field.
+    sfield = utils.get_source_field(grid, dat['src'], dat['freq'], 0)
+
+    return grid, model, sfield
 
 
 class SolverMemory:
-    """Timing for emg3d.solver.solver.
+    """Memory check for emg3d.solver.solver.
 
-    See data/salt_create.py for the mesh- and data-creation.
-
-    Memory:
-      - MG/MG with BiCGSTAB
-      - iso/vti/tri-axial
+    Loops:
+      - MG with or without BiCGSTAB.
+      - Model with isotropic, VTI, or tri-axial resistivities.
 
     """
-
-    # Parameters to loop over
-    params = [[True, False], ['iso', 'vti', 'tri'], ]
     param_names = ['sslsolver', 'anisotropy', ]
+    params = [[True, False], ['iso', 'vti', 'tri'], ]
 
     def setup(self, sslsolver, anisotropy):
-
-        # Create grid.
-        self.grid = utils.TensorMesh(
-                [MESH['hx'], MESH['hy'], MESH['hz']], MESH['x0'])
-
-        # Get source field.
-        self.sfield = utils.get_source_field(
-                self.grid, MESH['src'], MESH['freq'], 0)
-
-        # Create model.
-        inp = {'grid': self.grid, 'res_x': RES, 'freq': MESH['freq']}
-        if anisotropy == 'iso':
-            self.model = utils.Model(**inp)
-        elif anisotropy == 'vti':
-            self.model = utils.Model(res_z=3*RES, **inp)
-        else:
-            self.model = utils.Model(res_y=2*RES, res_z=3*RES, **inp)
+        self.grid, self.model, self.sfield = get_model(anisotropy)
 
     def teardown(self, sslsolver, anisotropy):
         del self.grid, self.sfield, self.model
@@ -51,39 +66,25 @@ class SolverMemory:
                 grid=self.grid,
                 model=self.model,
                 sfield=self.sfield,
+                cycle='F',
                 sslsolver=sslsolver,
                 semicoarsening=True,
                 linerelaxation=True,
-                verb=2)
+                verb=VERB)
 
 
 class SolverTimeSSL:
     """Timing for emg3d.solver.solver.
 
-    See data/salt_create.py for the mesh- and data-creation.
-
-    Time:
-    - Timing, with/without sslsolver.
+    Loop:
+    - MG with or without BiCGSTAB.
 
     """
-
-    # Parameters to loop over
     params = [[True, False], ]
     param_names = ['sslsolver', ]
 
     def setup(self, sslsolver):
-
-        # Create grid.
-        self.grid = utils.TensorMesh(
-                [MESH['hx'], MESH['hy'], MESH['hz']], MESH['x0'])
-
-        # Get source field.
-        self.sfield = utils.get_source_field(
-                self.grid, MESH['src'], MESH['freq'], 0)
-
-        # Create model.
-        inp = {'grid': self.grid, 'res_x': RES, 'freq': MESH['freq']}
-        self.model = utils.Model(**inp)
+        self.grid, self.model, self.sfield = get_model()
 
     def teardown(self, sslsolver):
         del self.grid, self.sfield, self.model
@@ -93,39 +94,26 @@ class SolverTimeSSL:
                 grid=self.grid,
                 model=self.model,
                 sfield=self.sfield,
+                cycle='F',
                 sslsolver=sslsolver,
                 semicoarsening=True,
                 linerelaxation=True,
-                verb=2)
+                verb=VERB)
 
 
 class SolverTimeMG:
     """Timing for emg3d.solver.solver.
 
-    See data/salt_create.py for the mesh- and data-creation.
-
-    Time:
-    - Timing, MG with/without semicoarsening; with/without line relaxation
+    Loop:
+    - MG with or without semicoarsening.
+    - MG with or without line relaxation.
 
     """
-
-    # Parameters to loop over
-    params = [[True, False], [True, False]]
     param_names = ['semicoarsening', 'linerelaxation']
+    params = [[True, False], [True, False]]
 
     def setup(self, semicoarsening, linerelaxation):
-
-        # Create grid.
-        self.grid = utils.TensorMesh(
-                [MESH['hx'], MESH['hy'], MESH['hz']], MESH['x0'])
-
-        # Get source field.
-        self.sfield = utils.get_source_field(
-                self.grid, MESH['src'], MESH['freq'], 0)
-
-        # Create model.
-        inp = {'grid': self.grid, 'res_x': RES, 'freq': MESH['freq']}
-        self.model = utils.Model(**inp)
+        self.grid, self.model, self.sfield = get_model()
 
     def teardown(self, semicoarsening, linerelaxation):
         del self.grid, self.sfield, self.model
@@ -135,38 +123,25 @@ class SolverTimeMG:
                 grid=self.grid,
                 model=self.model,
                 sfield=self.sfield,
+                cycle='F',
+                sslsolver=False,
                 semicoarsening=semicoarsening,
                 linerelaxation=linerelaxation,
-                verb=2)
+                verb=VERB)
 
 
 class SolverTimeCycle:
     """Timing for emg3d.solver.solver.
 
-    See data/salt_create.py for the mesh- and data-creation.
-
-    Time:
-    - Timing, MG all cycles; semicoarsening and line relaxation
+    Loop:
+    - MG with 'V', 'W', or 'F' cycle.
 
     """
-
-    # Parameters to loop over
-    params = [['V', 'W', 'F'], ]
     param_names = ['cycle', ]
+    params = [['V', 'W', 'F'], ]
 
     def setup(self, cycle):
-
-        # Create grid.
-        self.grid = utils.TensorMesh(
-                [MESH['hx'], MESH['hy'], MESH['hz']], MESH['x0'])
-
-        # Get source field.
-        self.sfield = utils.get_source_field(
-                self.grid, MESH['src'], MESH['freq'], 0)
-
-        # Create model.
-        inp = {'grid': self.grid, 'res_x': RES, 'freq': MESH['freq']}
-        self.model = utils.Model(**inp)
+        self.grid, self.model, self.sfield = get_model()
 
     def teardown(self, cycle):
         del self.grid, self.sfield, self.model
@@ -177,6 +152,49 @@ class SolverTimeCycle:
                 model=self.model,
                 sfield=self.sfield,
                 cycle=cycle,
+                sslsolver=False,
                 semicoarsening=True,
                 linerelaxation=True,
-                verb=2)
+                verb=VERB)
+
+
+class SmoothingTime:
+    """Timing for emg3d.solver.smoothing.
+
+    Loop:
+    - ldir = 0, 1, 2, or 3.
+
+    """
+    param_names = ['ldir', ]
+    params = [[0, 1, 2, 3], ]
+
+    def setup(self, ldir):
+        self.grid, self.model, self.sfield = get_model(case='big')
+
+    def teardown(self, ldir):
+        del self.grid, self.sfield, self.model
+
+    def time_smoothing(self, ldir):
+        solver.smoothing(
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                efield=self.sfield*0,
+                nu=2,
+                ldir=ldir)
+
+
+class ResidualTime:
+    """Timing for emg3d.solver.residual."""
+    def setup(self):
+        self.grid, self.model, self.sfield = get_model(case='big')
+
+    def teardown(self):
+        del self.grid, self.sfield, self.model
+
+    def time_smoothing(self):
+        solver.residual(
+                grid=self.grid,
+                model=self.model,
+                sfield=self.sfield,
+                efield=self.sfield*0)

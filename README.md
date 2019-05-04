@@ -4,12 +4,13 @@
 
 Currently there are benchmarks for:
 
-   - `solver`: `solver`.
+   - `solver`: `solver`, `smoothing`, `residual`.
    - `njitted`: None;
    - `utils`: None.
 
-So almost no benchmarks at all so far. But everything is in place, so before
-trying to improve speed or memory, write a benchmark for it.
+Not too many benchmarks so far. But enough to detect any sever regression. More
+importantly, everything is set up and in place. So before trying to improve
+speed or memory in any function, write a benchmark for it.
 
 Make sure to set
 ```
