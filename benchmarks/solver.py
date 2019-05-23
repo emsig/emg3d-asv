@@ -18,13 +18,16 @@ SMALL = DATA['small'][()]
 VERB = 1
 
 
-def get_model(anisotropy='iso', case='small'):
+def get_model(size, anisotropy='iso'):
     """Create grid, model, and sfield from SMALL or BIG."""
 
-    if case == 'big':
+    if size == 'big':
         dat = BIG
-    else:
+    elif size == 'small':
         dat = SMALL
+    else:
+        print(f"Error: `size` must be one of 'big', 'small'; provided: {size}")
+        raise ValueError
 
     # Create grid.
     grid = utils.TensorMesh([dat['hx'], dat['hy'], dat['hz']], dat['x0'])
@@ -56,7 +59,7 @@ class SolverMemory:
     params = [[True, False], ['iso', 'vti', 'tri'], ]
 
     def setup(self, sslsolver, anisotropy):
-        self.grid, self.model, self.sfield = get_model(anisotropy)
+        self.grid, self.model, self.sfield = get_model('small', anisotropy)
 
     def teardown(self, sslsolver, anisotropy):
         del self.grid, self.sfield, self.model
@@ -80,11 +83,11 @@ class SolverTimeSSL:
     - MG with or without BiCGSTAB.
 
     """
-    params = [[True, False], ]
     param_names = ['sslsolver', ]
+    params = [[True, False], ]
 
     def setup(self, sslsolver):
-        self.grid, self.model, self.sfield = get_model()
+        self.grid, self.model, self.sfield = get_model('small')
 
     def teardown(self, sslsolver):
         del self.grid, self.sfield, self.model
@@ -113,7 +116,7 @@ class SolverTimeMG:
     params = [[True, False], [True, False]]
 
     def setup(self, semicoarsening, linerelaxation):
-        self.grid, self.model, self.sfield = get_model()
+        self.grid, self.model, self.sfield = get_model('small')
 
     def teardown(self, semicoarsening, linerelaxation):
         del self.grid, self.sfield, self.model
@@ -141,7 +144,7 @@ class SolverTimeCycle:
     params = [['V', 'W', 'F'], ]
 
     def setup(self, cycle):
-        self.grid, self.model, self.sfield = get_model()
+        self.grid, self.model, self.sfield = get_model('small')
 
     def teardown(self, cycle):
         del self.grid, self.sfield, self.model
@@ -165,16 +168,17 @@ class SmoothingTime:
     - ldir = 0, 1, 2, or 3.
 
     """
-    param_names = ['ldir', ]
-    params = [[0, 1, 2, 3], ]
+    param_names = ['ldir', 'size']
+    params = [[0, 1, 2, 3], ['small', 'big']]
 
-    def setup(self, ldir):
-        self.grid, self.model, self.sfield = get_model(case='big')
 
-    def teardown(self, ldir):
+    def setup(self, ldir, size):
+        self.grid, self.model, self.sfield = get_model(size)
+
+    def teardown(self, ldir, size):
         del self.grid, self.sfield, self.model
 
-    def time_smoothing(self, ldir):
+    def time_smoothing(self, ldir, size):
         solver.smoothing(
                 grid=self.grid,
                 model=self.model,
@@ -191,16 +195,16 @@ class SmoothingMemory:
     - ldir = 0, 1, 2, or 3.
 
     """
-    param_names = ['ldir', ]
-    params = [[0, 1, 2, 3], ]
+    param_names = ['ldir', 'size']
+    params = [[0, 1, 2, 3], ['small', 'big']]
 
-    def setup(self, ldir):
-        self.grid, self.model, self.sfield = get_model(case='big')
+    def setup(self, ldir, size):
+        self.grid, self.model, self.sfield = get_model(size)
 
-    def teardown(self, ldir):
+    def teardown(self, ldir, size):
         del self.grid, self.sfield, self.model
 
-    def peakmem_smoothing(self, ldir):
+    def peakmem_smoothing(self, ldir, size):
         solver.smoothing(
                 grid=self.grid,
                 model=self.model,
@@ -212,13 +216,16 @@ class SmoothingMemory:
 
 class ResidualTime:
     """Timing for emg3d.solver.residual."""
-    def setup(self):
-        self.grid, self.model, self.sfield = get_model(case='big')
+    param_names = ['size', ]
+    params = [['small', 'big'], ]
 
-    def teardown(self):
+    def setup(self, size):
+        self.grid, self.model, self.sfield = get_model(size)
+
+    def teardown(self, size):
         del self.grid, self.sfield, self.model
 
-    def time_smoothing(self):
+    def time_smoothing(self, size):
         solver.residual(
                 grid=self.grid,
                 model=self.model,
@@ -228,13 +235,16 @@ class ResidualTime:
 
 class ResidualMemory:
     """Memory for emg3d.solver.residual."""
-    def setup(self):
-        self.grid, self.model, self.sfield = get_model(case='big')
+    param_names = ['size', ]
+    params = [['small', 'big'], ]
 
-    def teardown(self):
+    def setup(self, size):
+        self.grid, self.model, self.sfield = get_model(size)
+
+    def teardown(self, size):
         del self.grid, self.sfield, self.model
 
-    def peakmem_smoothing(self):
+    def peakmem_smoothing(self, size):
         solver.residual(
                 grid=self.grid,
                 model=self.model,
