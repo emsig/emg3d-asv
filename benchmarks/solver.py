@@ -46,6 +46,15 @@ def get_model(size, anisotropy='iso'):
 
     return grid, model, sfield
 
+# Find out if we are in the before eef25f71 or not.
+grid, model, sfield = get_model('small')
+try:
+    a, b = solver.residual(grid, model, sfield, sfield*0)
+    BEFORE = False
+except:
+    BEFORE = True
+del grid, sfield, model
+
 
 class SolverMemory:
     """Memory check for emg3d.solver.solver.
@@ -165,53 +174,55 @@ class SmoothingTime:
     """Timing for emg3d.solver.smoothing.
 
     Loop:
-    - ldir = 0, 1, 2, or 3.
+    - lr_dir = 0, 1, 2, or 3.
 
     """
-    param_names = ['ldir', 'size']
+    param_names = ['lr_dir', 'size']
     params = [[0, 1, 2, 3], ['small', 'big']]
 
 
-    def setup(self, ldir, size):
+    def setup(self, lr_dir, size):
         self.grid, self.model, self.sfield = get_model(size)
 
-    def teardown(self, ldir, size):
+    def teardown(self, lr_dir, size):
         del self.grid, self.sfield, self.model
 
-    def time_smoothing(self, ldir, size):
-        solver.smoothing(
-                grid=self.grid,
-                model=self.model,
-                sfield=self.sfield,
-                efield=self.sfield*0,
-                nu=2,
-                ldir=ldir)
+    def time_smoothing(self, lr_dir, size):
+        efield = utils.Field(self.grid, self.sfield.field)
+        inp = (self.grid, self.model, self.sfield, efield, 2, lr_dir)
+        if BEFORE:
+            solver.smoothing(*inp)
+            res = solver.residual(self.grid, self.model, self.sfield, efield)
+            norm = np.linalg.norm(res)
+        else:  # After, residual is included in smoothing and norm in residual.
+            res, norm = solver.smoothing(*inp)
 
 
 class SmoothingMemory:
     """Memory for emg3d.solver.smoothing.
 
     Loop:
-    - ldir = 0, 1, 2, or 3.
+    - lr_dir = 0, 1, 2, or 3.
 
     """
-    param_names = ['ldir', 'size']
+    param_names = ['lr_dir', 'size']
     params = [[0, 1, 2, 3], ['small', 'big']]
 
-    def setup(self, ldir, size):
+    def setup(self, lr_dir, size):
         self.grid, self.model, self.sfield = get_model(size)
 
-    def teardown(self, ldir, size):
+    def teardown(self, lr_dir, size):
         del self.grid, self.sfield, self.model
 
-    def peakmem_smoothing(self, ldir, size):
-        solver.smoothing(
-                grid=self.grid,
-                model=self.model,
-                sfield=self.sfield,
-                efield=self.sfield*0,
-                nu=2,
-                ldir=ldir)
+    def peakmem_smoothing(self, lr_dir, size):
+        efield = utils.Field(self.grid, self.sfield.field)
+        inp = (self.grid, self.model, self.sfield, efield, 2, lr_dir)
+        if BEFORE:
+            solver.smoothing(*inp)
+            res = solver.residual(self.grid, self.model, self.sfield, efield)
+            norm = np.linalg.norm(res)
+        else:  # After, residual is included in smoothing and norm in residual.
+            res, norm = solver.smoothing(*inp)
 
 
 class ResidualTime:
@@ -225,12 +236,14 @@ class ResidualTime:
     def teardown(self, size):
         del self.grid, self.sfield, self.model
 
-    def time_smoothing(self, size):
-        solver.residual(
-                grid=self.grid,
-                model=self.model,
-                sfield=self.sfield,
-                efield=self.sfield*0)
+    def time_residual(self, size):
+        if BEFORE:
+            res = solver.residual(
+                    self.grid, self.model, self.sfield, self.sfield.field*0)
+            norm = np.linalg.norm(res)
+        else:  # After, norm is included in residual.
+            res, norm = solver.residual(
+                    self.grid, self.model, self.sfield, self.sfield.field*0)
 
 
 class ResidualMemory:
@@ -244,9 +257,11 @@ class ResidualMemory:
     def teardown(self, size):
         del self.grid, self.sfield, self.model
 
-    def peakmem_smoothing(self, size):
-        solver.residual(
-                grid=self.grid,
-                model=self.model,
-                sfield=self.sfield,
-                efield=self.sfield*0)
+    def peakmem_residual(self, size):
+        if BEFORE:
+            res = solver.residual(
+                    self.grid, self.model, self.sfield, self.sfield.field*0)
+            norm = np.linalg.norm(res)
+        else:  # After, norm is included in residual.
+            res, norm = solver.residual(
+                    self.grid, self.model, self.sfield, self.sfield.field*0)
