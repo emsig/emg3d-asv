@@ -8,6 +8,8 @@ import numpy as np
 from emg3d import utils, solver
 from os.path import join, dirname
 
+VariableCatch = (LookupError, AttributeError, ValueError, TypeError, NameError)
+
 # Load salt example data set
 DATA = np.load(join(dirname(__file__), 'data/salt_data.npz'),
                allow_pickle=True)
@@ -33,13 +35,22 @@ def get_model(size, anisotropy='iso'):
     grid = utils.TensorMesh([dat['hx'], dat['hy'], dat['hz']], dat['x0'])
 
     # Create model.
-    inp = {'grid': grid, 'res_x': dat['res'], 'freq': dat['freq']}
-    if anisotropy == 'vti':
-        model = utils.Model(res_z=3*dat['res'], **inp)
-    elif anisotropy == 'tri':
-        model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
-    else:  # Default is 'iso'
-        model = utils.Model(**inp)
+    try:  # Model in emg3d < v0.9.0 was frequency dependent.
+        inp = {'grid': grid, 'res_x': dat['res'], 'freq': dat['freq']}
+        if anisotropy == 'vti':
+            model = utils.Model(res_z=3*dat['res'], **inp)
+        elif anisotropy == 'tri':
+            model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+        else:  # Default is 'iso'
+            model = utils.Model(**inp)
+    except VariableCatch:  # Model in emg3d > v0.9.0 is frequency independent.
+        inp = {'grid': grid, 'res_x': dat['res']}
+        if anisotropy == 'vti':
+            model = utils.Model(res_z=3*dat['res'], **inp)
+        elif anisotropy == 'tri':
+            model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+        else:  # Default is 'iso'
+            model = utils.Model(**inp)
 
     # Create source field.
     sfield = utils.get_source_field(grid, dat['src'], dat['freq'], 0)
