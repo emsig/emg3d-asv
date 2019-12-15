@@ -124,8 +124,11 @@ class SmoothingMemory:
             data[size] = {}
             grid, model, sfield = get_model(size)
             data[size]['grid'] = grid
-            data[size]['model'] = model
             data[size]['sfield'] = sfield
+            try:  # Needs VolumeModel from d8e98c0 onwards.
+                data[size]['model'] = utils.VolumeModel(grid, model, sfield)
+            except AttributeError:
+                data[size]['model'] = model
         return data
 
     def peakmem_smoothing(self, data, lr_dir, size):
