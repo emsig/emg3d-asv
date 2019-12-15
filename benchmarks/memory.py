@@ -59,13 +59,17 @@ def get_model(size, anisotropy='iso'):
 
 
 # Find out if we are in the before eef25f71 or not.
-grid, model, sfield = get_model('small')
+grid, tmodel, sfield = get_model('small')
 try:
+    try:  # Needs VolumeModel from d8e98c0 onwards.
+        model = utils.VolumeModel(grid, tmodel, sfield)
+    except AttributeError:
+        model = tmodel
     a, b = solver.residual(grid, model, sfield, sfield*0)
     BEFORE = False
 except ValueError:
     BEFORE = True
-del grid, sfield, model
+del grid, sfield, tmodel, model
 
 
 class SolverMemory:
@@ -149,8 +153,11 @@ class ResidualMemory:
             data[size] = {}
             grid, model, sfield = get_model(size)
             data[size]['grid'] = grid
-            data[size]['model'] = model
             data[size]['sfield'] = sfield
+            try:  # Needs VolumeModel from d8e98c0 onwards.
+                data[size]['model'] = utils.VolumeModel(grid, model, sfield)
+            except AttributeError:
+                data[size]['model'] = model
         return data
 
     def peakmem_residual(self, data, size):
