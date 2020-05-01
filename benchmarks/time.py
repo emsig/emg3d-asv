@@ -60,6 +60,7 @@ def get_model(size, anisotropy='iso'):
 
 
 # Find out if we are in the before eef25f71 or not.
+# (We also use this to change from emg3d.solver.solver to emg3d.solver.solve.
 grid, tmodel, sfield = get_model('small')
 try:
     try:  # Needs VolumeModel from d8e98c0 onwards.
@@ -68,8 +69,10 @@ try:
         model = tmodel
     a, b = solver.residual(grid, model, sfield, sfield*0)
     BEFORE = False
+    solve = solver.solver
 except ValueError:
     BEFORE = True
+    solve = solver.solve
 del grid, sfield, tmodel, model
 
 
@@ -95,15 +98,14 @@ class SolverTimeSSL:
         grid = data['grid']
         model = data['model']
         sfield = utils.Field(grid, data['sfield'])
-        solver.solver(
-                grid=grid,
-                model=model,
-                sfield=sfield,
-                cycle='F',
-                sslsolver=sslsolver,
-                semicoarsening=True,
-                linerelaxation=True,
-                verb=VERB)
+        solve(grid=grid,
+              model=model,
+              sfield=sfield,
+              cycle='F',
+              sslsolver=sslsolver,
+              semicoarsening=True,
+              linerelaxation=True,
+              verb=VERB)
 
 
 class SolverTimeMG:
@@ -129,15 +131,14 @@ class SolverTimeMG:
         grid = data['grid']
         model = data['model']
         sfield = utils.Field(grid, data['sfield'])
-        solver.solver(
-                grid=grid,
-                model=model,
-                sfield=sfield,
-                cycle='F',
-                sslsolver=False,
-                semicoarsening=semicoarsening,
-                linerelaxation=linerelaxation,
-                verb=VERB)
+        solve(grid=grid,
+              model=model,
+              sfield=sfield,
+              cycle='F',
+              sslsolver=False,
+              semicoarsening=semicoarsening,
+              linerelaxation=linerelaxation,
+              verb=VERB)
 
 
 class SolverTimeCycle:
@@ -162,15 +163,14 @@ class SolverTimeCycle:
         grid = data['grid']
         model = data['model']
         sfield = utils.Field(grid, data['sfield'])
-        solver.solver(
-                grid=grid,
-                model=model,
-                sfield=sfield,
-                cycle=cycle,
-                sslsolver=False,
-                semicoarsening=True,
-                linerelaxation=True,
-                verb=VERB)
+        solve(grid=grid,
+              model=model,
+              sfield=sfield,
+              cycle=cycle,
+              sslsolver=False,
+              semicoarsening=True,
+              linerelaxation=True,
+              verb=VERB)
 
 
 class SmoothingTime:
