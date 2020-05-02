@@ -59,7 +59,6 @@ def get_model(size, anisotropy='iso'):
 
 
 # Find out if we are in the before eef25f71 or not.
-# (We also use this to change from emg3d.solver.solver to emg3d.solver.solve.
 grid, tmodel, sfield = get_model('small')
 try:
     try:  # Needs VolumeModel from d8e98c0 onwards.
@@ -68,11 +67,15 @@ try:
         model = tmodel
     a, b = solver.residual(grid, model, sfield, sfield*0)
     BEFORE = False
-    solve = solver.solver
 except ValueError:
     BEFORE = True
-    solve = solver.solve
 del grid, sfield, tmodel, model
+
+# Change from emg3d.solver.solver to emg3d.solver.solve.
+try:
+    from emg3d.solver import solve as solve
+except ImportError:
+    from emg3d.solver import solver as solve
 
 
 class SolverMemory:

@@ -74,9 +74,9 @@ del grid, sfield, tmodel, model
 
 # Change from emg3d.solver.solver to emg3d.solver.solve.
 try:
-    solve = solver.solve
+    from emg3d.solver import solve as solve
 except ImportError:
-    solve = solver.solver
+    from emg3d.solver import solver as solve
 
 
 class SolverTimeSSL:
