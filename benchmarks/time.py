@@ -4,9 +4,12 @@ Benchmarks for emg3d.solver.
 See ./data/salt_create.py for the mesh- and data-creation of the salt example.
 
 """
-import numpy as np
-from emg3d import utils, solver
+
 from os.path import join, dirname
+
+import numpy as np
+
+import emg3d
 
 VariableCatch = (LookupError, AttributeError, ValueError, TypeError, NameError)
 
@@ -32,51 +35,72 @@ def get_model(size, anisotropy='iso'):
         raise ValueError
 
     # Create grid.
-    grid = utils.TensorMesh([dat['hx'], dat['hy'], dat['hz']], dat['x0'])
+    grid = TensorMesh([dat['hx'], dat['hy'], dat['hz']], dat['x0'])
 
     # Create model.
-    try:  # Model in emg3d < v0.9.0 was frequency dependent.
-        inp = {'grid': grid, 'res_x': dat['res'], 'freq': dat['freq']}
+    try:  # from 0.12.0 onwards, use property with mapping instead of res.
+        inp = {'grid': grid, 'property_x': dat['res'],
+               'mapping': 'Resistivity'}
         if anisotropy == 'vti':
-            model = utils.Model(res_z=3*dat['res'], **inp)
+            model = Model(property_z=3*dat['res'], **inp)
         elif anisotropy == 'tri':
-            model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+            model = Model(property_y=2*dat['res'], property_z=3*dat['res'],
+                          **inp)
         else:  # Default is 'iso'
-            model = utils.Model(**inp)
+            model = Model(**inp)
+    except VariableCatch:
+        try:  # Model in emg3d < v0.9.0 was frequency dependent.
+            inp = {'grid': grid, 'res_x': dat['res'], 'freq': dat['freq']}
+            if anisotropy == 'vti':
+                model = Model(res_z=3*dat['res'], **inp)
+            elif anisotropy == 'tri':
+                model = Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+            else:  # Default is 'iso'
+                model = Model(**inp)
 
-    except VariableCatch:  # Model in emg3d > v0.9.0 is frequency independent.
-        inp = {'grid': grid, 'res_x': dat['res']}
-        if anisotropy == 'vti':
-            model = utils.Model(res_z=3*dat['res'], **inp)
-        elif anisotropy == 'tri':
-            model = utils.Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
-        else:  # Default is 'iso'
-            model = utils.Model(**inp)
+        except VariableCatch:  # Model in emg3d > v0.9.0 is freq. independent.
+            inp = {'grid': grid, 'res_x': dat['res']}
+            if anisotropy == 'vti':
+                model = Model(res_z=3*dat['res'], **inp)
+            elif anisotropy == 'tri':
+                model = Model(res_y=2*dat['res'], res_z=3*dat['res'], **inp)
+            else:  # Default is 'iso'
+                model = Model(**inp)
 
     # Create source field.
-    sfield = utils.get_source_field(grid, dat['src'], dat['freq'], 0)
+    sfield = get_source_field(grid, dat['src'], dat['freq'], 0)
 
     return grid, model, sfield
 
 
-# Find out if we are in the before eef25f71 or not.
-grid, tmodel, sfield = get_model('small')
-try:
-    try:  # Needs VolumeModel from d8e98c0 onwards.
-        model = utils.VolumeModel(grid, tmodel, sfield)
-    except AttributeError:
-        model = tmodel
-    a, b = solver.residual(grid, model, sfield, sfield*0)
-    BEFORE = False
-except ValueError:
-    BEFORE = True
-del grid, sfield, tmodel, model
-
 # Change from emg3d.solver.solver to emg3d.solver.solve.
 try:
-    from emg3d.solver import solve as solve
+    from emg3d.solver import solve
 except ImportError:
     from emg3d.solver import solver as solve
+
+# Change from emg3d.utils to other modules.
+try:
+    from emg3d.utils import Field, Model, TensorMesh, get_source_field
+
+    # Find out if we are in the before eef25f71 or not.
+    grid, tmodel, sfield = get_model('small')
+    try:
+        try:  # Needs VolumeModel from d8e98c0 onwards.
+            model = emg3d.utils.VolumeModel(grid, tmodel, sfield)
+        except AttributeError:
+            model = tmodel
+        a, b = emg3d.solver.residual(grid, model, sfield, sfield*0)
+        BEFORE = False
+    except ValueError:
+        BEFORE = True
+    del grid, sfield, tmodel, model
+
+except ImportError:
+    BEFORE = True
+    from emg3d.fields import Field, get_source_field
+    from emg3d.models import Model, VolumeModel
+    from emg3d.meshes import TensorMesh
 
 
 class SolverTimeSSL:
@@ -100,7 +124,7 @@ class SolverTimeSSL:
     def time_solver(self, data, sslsolver):
         grid = data['grid']
         model = data['model']
-        sfield = utils.Field(grid, data['sfield'])
+        sfield = Field(grid, data['sfield'])
         solve(grid=grid,
               model=model,
               sfield=sfield,
@@ -133,7 +157,7 @@ class SolverTimeMG:
     def time_solver(self, data, semicoarsening, linerelaxation):
         grid = data['grid']
         model = data['model']
-        sfield = utils.Field(grid, data['sfield'])
+        sfield = Field(grid, data['sfield'])
         solve(grid=grid,
               model=model,
               sfield=sfield,
@@ -165,7 +189,7 @@ class SolverTimeCycle:
     def time_solver(self, data, cycle):
         grid = data['grid']
         model = data['model']
-        sfield = utils.Field(grid, data['sfield'])
+        sfield = Field(grid, data['sfield'])
         solve(grid=grid,
               model=model,
               sfield=sfield,
@@ -194,7 +218,7 @@ class SmoothingTime:
             data[size]['grid'] = grid
             data[size]['sfield'] = sfield
             try:  # Needs VolumeModel from d8e98c0 onwards.
-                data[size]['model'] = utils.VolumeModel(grid, model, sfield)
+                data[size]['model'] = VolumeModel(grid, model, sfield)
             except AttributeError:
                 data[size]['model'] = model
         return data
@@ -202,15 +226,15 @@ class SmoothingTime:
     def time_smoothing(self, data, lr_dir, size):
         grid = data[size]['grid']
         model = data[size]['model']
-        sfield = utils.Field(grid, data[size]['sfield'])
-        efield = utils.Field(grid)
+        sfield = Field(grid, data[size]['sfield'])
+        efield = Field(grid)
         inp = (grid, model, sfield, efield, 2, lr_dir)
         if BEFORE:
-            solver.smoothing(*inp)
-            res = solver.residual(grid, model, sfield, efield)
+            emg3d.solver.smoothing(*inp)
+            res = emg3d.solver.residual(grid, model, sfield, efield)
             norm = np.linalg.norm(res)
         else:  # After, residual is included in smoothing and norm in residual.
-            res, norm = solver.smoothing(*inp)
+            res, norm = emg3d.solver.smoothing(*inp)
 
 
 class ResidualTime:
@@ -226,7 +250,7 @@ class ResidualTime:
             data[size]['grid'] = grid
             data[size]['sfield'] = sfield
             try:  # Needs VolumeModel from d8e98c0 onwards.
-                data[size]['model'] = utils.VolumeModel(grid, model, sfield)
+                data[size]['model'] = VolumeModel(grid, model, sfield)
             except AttributeError:
                 data[size]['model'] = model
 
@@ -235,9 +259,10 @@ class ResidualTime:
     def time_residual(self, data, size):
         grid = data[size]['grid']
         model = data[size]['model']
-        sfield = utils.Field(grid, data[size]['sfield'])
+        sfield = Field(grid, data[size]['sfield'])
         if BEFORE:
-            res = solver.residual(grid, model, sfield, sfield.field*0)
+            res = emg3d.solver.residual(grid, model, sfield, sfield.field*0)
             norm = np.linalg.norm(res)
         else:  # After, norm is included in residual.
-            res, norm = solver.residual(grid, model, sfield, sfield.field*0)
+            res, norm = emg3d.solver.residual(
+                    grid, model, sfield, sfield.field*0)
