@@ -105,6 +105,8 @@ class SolverMemory:
       - Model with isotropic, VTI, or tri-axial resistivities.
 
     """
+    timeout = 120  # Increase timeout, default is 60.
+
     param_names = ['sslsolver', 'anisotropy', ]
     params = [[True, False], ['iso', 'vti', 'tri'], ]
 

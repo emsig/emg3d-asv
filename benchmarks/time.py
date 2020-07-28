@@ -104,6 +104,8 @@ class SolverTimeSSL:
     - MG with or without BiCGSTAB.
 
     """
+    timeout = 120  # Increase timeout, default is 60.
+
     param_names = ['sslsolver', ]
     params = [[True, False], ]
 
@@ -137,6 +139,8 @@ class SolverTimeMG:
     - MG with or without line relaxation.
 
     """
+    timeout = 120  # Increase timeout, default is 60.
+
     param_names = ['semicoarsening', 'linerelaxation']
     params = [[True, False], [True, False]]
 
@@ -169,6 +173,8 @@ class SolverTimeCycle:
     - MG with 'V', 'W', or 'F' cycle.
 
     """
+    timeout = 120  # Increase timeout, default is 60.
+
     param_names = ['cycle', ]
     params = [['V', 'W', 'F'], ]
 
