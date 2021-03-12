@@ -52,7 +52,10 @@ BIG = DATA['big'][()]
 SMALL = DATA['small'][()]
 
 # Change for debugging
-VERB = 1
+if INFO < (0, 17, 1, 7):
+    VERB = 1
+else:
+    VERB = 0
 
 
 def get_model(size, anisotropy='iso'):
@@ -119,16 +122,20 @@ class SolverTimeSSL:
 
     def time_solver(self, data, sslsolver):
         grid = data['grid']
-        model = data['model']
-        sfield = Field(grid, data['sfield'])
-        solve(grid=grid,
-              model=model,
-              sfield=sfield,
-              cycle='F',
-              sslsolver=sslsolver,
-              semicoarsening=True,
-              linerelaxation=True,
-              verb=VERB)
+        inp = {
+            'model': data['model'],
+            'sfield': Field(grid, data['sfield']),
+            'cycle': 'F',
+            'sslsolver': sslsolver,
+            'semicoarsening': True,
+            'linerelaxation': True,
+            'verb': VERB
+        }
+
+        if INFO < (0, 17, 1, 7):
+            inp['grid'] = data['grid']
+
+        solve(**inp)
 
 
 class SolverTimeMG:
@@ -154,16 +161,20 @@ class SolverTimeMG:
 
     def time_solver(self, data, semicoarsening, linerelaxation):
         grid = data['grid']
-        model = data['model']
-        sfield = Field(grid, data['sfield'])
-        solve(grid=grid,
-              model=model,
-              sfield=sfield,
-              cycle='F',
-              sslsolver=False,
-              semicoarsening=semicoarsening,
-              linerelaxation=linerelaxation,
-              verb=VERB)
+        inp = {
+            'model': data['model'],
+            'sfield': Field(grid, data['sfield']),
+            'cycle': 'F',
+            'sslsolver': False,
+            'semicoarsening': semicoarsening,
+            'linerelaxation': linerelaxation,
+            'verb': VERB
+        }
+
+        if INFO < (0, 17, 1, 7):
+            inp['grid'] = grid
+
+        solve(**inp)
 
 
 class SolverTimeCycle:
@@ -188,16 +199,20 @@ class SolverTimeCycle:
 
     def time_solver(self, data, cycle):
         grid = data['grid']
-        model = data['model']
-        sfield = Field(grid, data['sfield'])
-        solve(grid=grid,
-              model=model,
-              sfield=sfield,
-              cycle=cycle,
-              sslsolver=False,
-              semicoarsening=True,
-              linerelaxation=True,
-              verb=VERB)
+        inp = {
+            'model': data['model'],
+            'sfield': Field(grid, data['sfield']),
+            'cycle': cycle,
+            'sslsolver': False,
+            'semicoarsening': True,
+            'linerelaxation': True,
+            'verb': VERB
+        }
+
+        if INFO < (0, 17, 1, 7):
+            inp['grid'] = grid
+
+        solve(**inp)
 
 
 class SmoothingTime:
@@ -220,8 +235,10 @@ class SmoothingTime:
             # Needs VolumeModel from 0.9.1dev4 / d8e98c0 onwards.
             if INFO < (0, 9, 1, 4):
                 data[size]['model'] = model
-            else:
+            elif INFO < (0, 17, 1, 7):
                 data[size]['model'] = VolumeModel(grid, model, sfield)
+            else:
+                data[size]['model'] = VolumeModel(model, sfield)
         return data
 
     def time_smoothing(self, data, lr_dir, size):
@@ -229,9 +246,14 @@ class SmoothingTime:
         model = data[size]['model']
         sfield = Field(grid, data[size]['sfield'])
         efield = Field(grid)
-        inp = (grid, model, sfield, efield, 2, lr_dir)
-        emg3d.solver.smoothing(*inp)
-        _ = emg3d.solver.residual(grid, model, sfield, efield)
+        if INFO < (0, 17, 1, 7):
+            inp1 = (grid, model, sfield, efield, 2, lr_dir)
+            inp2 = (grid, model, sfield, efield)
+        else:
+            inp1 = (model, sfield, efield, 2, lr_dir)
+            inp2 = (model, sfield, efield)
+        emg3d.solver.smoothing(*inp1)
+        _ = emg3d.solver.residual(*inp2)
 
 
 class ResidualTime:
@@ -249,12 +271,18 @@ class ResidualTime:
             # Needs VolumeModel from 0.9.1dev4 / d8e98c0 onwards.
             if INFO < (0, 9, 1, 4):
                 data[size]['model'] = model
-            else:
+            elif INFO < (0, 17, 1, 7):
                 data[size]['model'] = VolumeModel(grid, model, sfield)
+            else:
+                data[size]['model'] = VolumeModel(model, sfield)
         return data
 
     def time_residual(self, data, size):
         grid = data[size]['grid']
         model = data[size]['model']
         sfield = Field(grid, data[size]['sfield'])
-        _ = emg3d.solver.residual(grid, model, sfield, sfield.field*0)
+        if INFO < (0, 17, 1, 7):
+            inp = (grid, model, sfield, sfield.field*0)
+        else:
+            inp = (model, sfield, sfield.field*0)
+        _ = emg3d.solver.residual(*inp)

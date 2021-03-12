@@ -31,6 +31,7 @@ INFO = tuple(map(int, INFO))
 # c9e595e: 0.9.3.dev1   : solver.solver => solver.solve
 # 8c31324: 0.10.2.dev1  : utils refactor to fields, meshes, models
 # 1b16955: 0.11.1.dev14 : res => property & mapping
+# c61ab52: 0.17.1.dev7  : grid part of Model, Field
 if INFO < (0, 9, 3, 1):
     from emg3d.solver import solver as solve
 else:
@@ -52,7 +53,10 @@ BIG = DATA['big'][()]
 SMALL = DATA['small'][()]
 
 # Change for debugging
-VERB = 1
+if INFO < (0, 17, 1, 7):
+    VERB = 1
+else:
+    VERB = 0
 
 
 def get_model(size, anisotropy='iso'):
@@ -122,16 +126,20 @@ class SolverMemory:
 
     def peakmem_solver(self, data, sslsolver, anisotropy):
         grid = data[anisotropy]['grid']
-        model = data[anisotropy]['model']
-        sfield = Field(grid, data[anisotropy]['sfield'])
-        solve(grid=grid,
-              model=model,
-              sfield=sfield,
-              cycle='F',
-              sslsolver=sslsolver,
-              semicoarsening=True,
-              linerelaxation=True,
-              verb=VERB)
+        inp = {
+            'model': data[anisotropy]['model'],
+            'sfield': Field(grid, data[anisotropy]['sfield']),
+            'cycle': 'F',
+            'sslsolver': sslsolver,
+            'semicoarsening': True,
+            'linerelaxation': True,
+            'verb': VERB
+        }
+
+        if INFO < (0, 17, 1, 7):
+            inp['grid'] = grid
+
+        solve(**inp)
 
 
 class SmoothingMemory:
@@ -154,8 +162,10 @@ class SmoothingMemory:
             # Needs VolumeModel from 0.9.1dev4 / d8e98c0 onwards.
             if INFO < (0, 9, 1, 4):
                 data[size]['model'] = model
-            else:
+            elif INFO < (0, 17, 1, 7):
                 data[size]['model'] = VolumeModel(grid, model, sfield)
+            else:
+                data[size]['model'] = VolumeModel(model, sfield)
         return data
 
     def peakmem_smoothing(self, data, lr_dir, size):
@@ -163,9 +173,14 @@ class SmoothingMemory:
         model = data[size]['model']
         sfield = Field(grid, data[size]['sfield'])
         efield = Field(grid)
-        inp = (grid, model, sfield, efield, 2, lr_dir)
-        emg3d.solver.smoothing(*inp)
-        _ = emg3d.solver.residual(grid, model, sfield, efield)
+        if INFO < (0, 17, 1, 7):
+            inp1 = (grid, model, sfield, efield, 2, lr_dir)
+            inp2 = (grid, model, sfield, efield)
+        else:
+            inp1 = (model, sfield, efield, 2, lr_dir)
+            inp2 = (model, sfield, efield)
+        emg3d.solver.smoothing(*inp1)
+        _ = emg3d.solver.residual(*inp2)
 
 
 class ResidualMemory:
@@ -183,12 +198,18 @@ class ResidualMemory:
             # Needs VolumeModel from 0.9.1dev4 / d8e98c0 onwards.
             if INFO < (0, 9, 1, 4):
                 data[size]['model'] = model
-            else:
+            elif INFO < (0, 17, 1, 7):
                 data[size]['model'] = VolumeModel(grid, model, sfield)
+            else:
+                data[size]['model'] = VolumeModel(model, sfield)
         return data
 
     def peakmem_residual(self, data, size):
         grid = data[size]['grid']
         model = data[size]['model']
         sfield = Field(grid, data[size]['sfield'])
-        _ = emg3d.solver.residual(grid, model, sfield, sfield.field*0)
+        if INFO < (0, 17, 1, 7):
+            inp = (grid, model, sfield, sfield.field*0)
+        else:
+            inp = (model, sfield, sfield.field*0)
+        _ = emg3d.solver.residual(*inp)
