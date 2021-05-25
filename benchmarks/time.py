@@ -23,6 +23,11 @@ else:
 if len(INFO) == 3:
     # If release, add dev 999, so it does not fall below devs.
     INFO = [*INFO, '999']
+if 'rc' in INFO[2]:
+    if len(INFO) > 3:
+        INFO = [INFO[0], INFO[1], INFO[2][0], INFO[3]]
+    else:
+        INFO = [INFO[0], INFO[1], INFO[2][0]]
 INFO = tuple(map(int, INFO))
 
 # Version-dependent imports.
@@ -95,7 +100,11 @@ def get_model(size, anisotropy='iso'):
     model = Model(**inp)
 
     # Create source field.
-    sfield = get_source_field(grid, dat['src'], dat['freq'], 0)
+    if INFO > (1, 0, 0, 0):
+        sfield = get_source_field(
+                grid, dat['src'], dat['freq'], strength=1/200)
+    else:
+        sfield = get_source_field(grid, dat['src'], dat['freq'], 0)
 
     return grid, model, sfield
 
@@ -122,9 +131,14 @@ class SolverTimeSSL:
 
     def time_solver(self, data, sslsolver):
         grid = data['grid']
+        if INFO > (1, 0, 0, 0):
+            sfield = Field(grid, data['sfield'].field,
+                           data['sfield'].frequency)
+        else:
+            sfield = Field(grid, data['sfield'])
         inp = {
             'model': data['model'],
-            'sfield': Field(grid, data['sfield']),
+            'sfield': sfield,
             'cycle': 'F',
             'sslsolver': sslsolver,
             'semicoarsening': True,
@@ -161,9 +175,14 @@ class SolverTimeMG:
 
     def time_solver(self, data, semicoarsening, linerelaxation):
         grid = data['grid']
+        if INFO > (1, 0, 0, 0):
+            sfield = Field(grid, data['sfield'].field,
+                           data['sfield'].frequency)
+        else:
+            sfield = Field(grid, data['sfield'])
         inp = {
             'model': data['model'],
-            'sfield': Field(grid, data['sfield']),
+            'sfield': sfield,
             'cycle': 'F',
             'sslsolver': False,
             'semicoarsening': semicoarsening,
@@ -199,9 +218,14 @@ class SolverTimeCycle:
 
     def time_solver(self, data, cycle):
         grid = data['grid']
+        if INFO > (1, 0, 0, 0):
+            sfield = Field(grid, data['sfield'].field,
+                           data['sfield'].frequency)
+        else:
+            sfield = Field(grid, data['sfield'])
         inp = {
             'model': data['model'],
-            'sfield': Field(grid, data['sfield']),
+            'sfield': sfield,
             'cycle': cycle,
             'sslsolver': False,
             'semicoarsening': True,
@@ -244,7 +268,11 @@ class SmoothingTime:
     def time_smoothing(self, data, lr_dir, size):
         grid = data[size]['grid']
         model = data[size]['model']
-        sfield = Field(grid, data[size]['sfield'])
+        if INFO > (1, 0, 0, 0):
+            sfield = Field(grid, data[size]['sfield'].field,
+                           data[size]['sfield'].frequency)
+        else:
+            sfield = Field(grid, data[size]['sfield'])
         efield = Field(grid)
         if INFO < (0, 17, 1, 7):
             inp1 = (grid, model, sfield, efield, 2, lr_dir)
@@ -280,9 +308,16 @@ class ResidualTime:
     def time_residual(self, data, size):
         grid = data[size]['grid']
         model = data[size]['model']
-        sfield = Field(grid, data[size]['sfield'])
-        if INFO < (0, 17, 1, 7):
-            inp = (grid, model, sfield, sfield.field*0)
+        if INFO > (1, 0, 0, 0):
+            sfield = Field(grid, data[size]['sfield'].field,
+                           data[size]['sfield'].frequency)
+            efield = Field(grid, data[size]['sfield'].field*0,
+                           data[size]['sfield'].frequency)
         else:
-            inp = (model, sfield, sfield.field*0)
+            sfield = Field(grid, data[size]['sfield']*0)
+            efield = Field(grid, data[size]['sfield'])
+        if INFO < (0, 17, 1, 7):
+            inp = (grid, model, sfield, efield)
+        else:
+            inp = (model, sfield, efield)
         _ = emg3d.solver.residual(*inp)
